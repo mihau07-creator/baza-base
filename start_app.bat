@@ -12,7 +12,7 @@ if exist ".venv\Scripts\activate.bat" (
     echo Sprobujemy uzyc globalnego pythona...
 )
 
-:: Streamlit automatically opens the browser, so we just run it
-streamlit run app.py
+:: Run streamlit via python module to avoid path issues
+python -m streamlit run app.py
 
 pause

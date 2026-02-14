@@ -7,11 +7,6 @@ Aby Twoja aplikacja była dostępna z każdego miejsca, możesz skorzystać z da
 Aby aplikacja w chmurze miała dostęp do Twoich danych, plik `sales.db` musi znaleźć się na GitHubie.
 (Ten krok wykonałem już automatycznie, usuwając go z ignorowanych plików).
 
-Pamiętaj:
-> [!WARNING]
-> System plików na Streamlit Cloud jest "ulotny". Oznacza to, że jeśli dodasz nowe zamówienia przez stronę internetową, mogą one zniknąć po restarcie aplikacji.
-> Najbezpieczniej jest dodawać dane lokalnie na komputerze, a następnie wysyłać zaktualizowany plik `sales.db` na GitHub za pomocą skryptu `github_upload.bat`.
-
 ## Krok 2: Rejestracja i połączenie
 
 1. Wejdź na stronę [share.streamlit.io](https://share.streamlit.io/).
@@ -22,18 +17,23 @@ Pamiętaj:
 ## Krok 3: Konfiguracja aplikacji
 
 W formularzu wybierz:
-- **Repository**: `mihau07-creator/baza-base`
+- **Repository**: `michallytka/baza-base`
 - **Branch**: `main`
 - **Main file path**: `app.py`
 
 Kliknij **"Deploy!"**.
 
-## Gotowe!
+## Częste pytania
 
-Po kilku minutach Twoja aplikacja będzie dostępna pod adresem internetowym, który możesz wysłać komukolwiek lub otworzyć na telefonie.
+### Czy muszę mieć włączony komputer?
+**NIE.** Jeśli skorzystasz z Streamlit Cloud, Twoja aplikacja i baza danych działają na zewnętrznych serwerach. Możesz wyłączyć swój komputer, a nadal będziesz mieć podgląd danych na telefonie czy tablecie.
 
-## Aktualizacja danych
+### Jak zaktualizować dane?
+Ponieważ baza danych w chmurze jest "kopią" Twojej lokalnej bazy, nowe zamówienia dodane na komputerze nie pojawią się automatycznie online. Aby je zaktualizować:
 
-Gdy dodasz nowe dane na komputerze:
-1. Uruchom `github_upload.bat`.
-2. Aplikacja w chmurze zaktualizuje się automatycznie po wykryciu zmian na GitHubie (może to potrwać kilka minut).
+1. Dodaj nowe dane do bazy na swoim komputerze (tak jak zwykle).
+2. Kliknij dwukrotnie plik `github_upload.bat`.
+3. Poczekaj kilka minut – aplikacja w chmurze sama pobierze nową wersję bazy.
+
+> [!WARNING]
+> Jeśli dodasz dane przez stronę internetową (w chmurze), mogą one zniknąć po restarcie aplikacji. Traktuj wersję online jako "tylko do odczytu" (podgląd), a dane dodawaj zawsze na swoim komputerze.
