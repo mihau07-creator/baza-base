@@ -18,7 +18,7 @@ Działa to bardzo podobnie i też jest darmowe.
 4. Wypełnij formularz:
    - **Space name**: np. `baza-base`.
    - **License**: Wybierz cokolwiek, np. `mit`.
-   - **Soce SDK**: Wybierz **Streamlit**.
+   - **Soce SDK**: Wybierz **Docker** (skoro Streamlit nie jest dostępny).
    - **Space hardware**: Wybierz **Free** (CPU basic).
    - **Privacy**: Wybierz **Public** (jeśli chcesz mieć łatwy dostęp) lub **Private** (wymaga logowania).
 5. Kliknij **Create Space**.
