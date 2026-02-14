@@ -41,7 +41,6 @@ def load_data():
             Order.email,
             Order.phone,
             Order.nip,
-            Order.company,
             Order.invoice_number,
             Order.receipt_number,
             Item.name.label('product_name'),
@@ -147,7 +146,7 @@ def main():
     # Apply Text Search
     if search_query:
         query = search_query.lower()
-        cols_to_search = ['client_login', 'email', 'company', 'nip', 'phone', 'product_name', 'order_id']
+        cols_to_search = ['client_login', 'email', 'nip', 'phone', 'product_name', 'order_id']
         search_mask = pd.Series([False] * len(filtered_df), index=filtered_df.index)
         
         for col in cols_to_search:
