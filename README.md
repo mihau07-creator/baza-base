@@ -1,3 +1,14 @@
+---
+title: Sales Archive
+emoji: 📦
+colorFrom: yellow
+colorTo: orange
+sdk: streamlit
+sdk_version: 1.31.0
+app_file: app.py
+pinned: false
+---
+
 # Baza Base - Archiwum Sprzedaży
 
 Aplikacja do przeglądania i analizy archiwum sprzedaży, zbudowana w oparciu o [Streamlit](https://streamlit.io).
