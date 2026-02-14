@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archiwum Sprzedaży</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & ReactDOM -->
+    <script src="/libs/react.js"></script>
+    <script src="/libs/react-dom.js"></script>
+
+    <!-- Babel (for JSX) -->
+    <script src="/libs/babel.js"></script>
+
+    <!-- Recharts (Charts) -->
+    <script src="/libs/prop-types.js"></script>
+    <script src="/libs/recharts.js"></script>
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        window.onerror = function (message, source, lineno, colno, error) {
+            document.body.innerHTML = '<div style="color:red; padding:20px; background:#330000;"><h1>Application Error</h1><p>' + message + '</p><p>' + source + ':' + lineno + '</p></div>';
+        };
+    </script>
+
+    <style>
+        /* Custom Scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        body {
+            background-color: #0f172a;
+            /* Slate 900 */
+            color: #e2e8f0;
+            /* Slate 200 */
+        }
+    </style>
+</head>
+
+<body class="antialiased h-screen overflow-hidden">
+    <div id="root" class="h-full w-full"></div>
+
+    <!-- Main Application Logic -->
+    <script type="text/babel" src="/app.js?v=5"></script>
+</body>
+
+</html>
