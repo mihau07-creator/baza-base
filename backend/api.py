@@ -160,33 +160,17 @@ def get_sales_stats(
     date_to: Optional[str] = None,
     source: Optional[str] = None,
     client: Optional[str] = None,
+    product: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(models.Order.date, models.Order.total).filter(models.Order.date.isnot(None))
-    
     d_from_obj = None
     d_to_obj = None
     if date_from:
-        try:
-            d_from_obj = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(models.Order.date >= d_from_obj)
+        try: d_from_obj = datetime.strptime(date_from, "%Y-%m-%d")
         except: pass
-        
     if date_to:
-        try:
-            d_to_obj = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            query = query.filter(models.Order.date <= d_to_obj)
+        try: d_to_obj = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
         except: pass
-
-    if source:
-        query = query.filter(models.Order.source == source)
-        
-    if client:
-        search_client = f"%{client}%"
-        query = query.filter(
-            (models.Order.client_name.like(search_client)) |
-            (models.Order.nip.like(search_client))
-        )
 
     # Determine grouping: Day vs Month
     group_by_day = False
@@ -198,68 +182,71 @@ def get_sales_stats(
             group_by_day = True
             
     date_format = "%Y-%m-%d" if group_by_day else "%Y-%m"
-
-    # Query 1: Sales (from Orders)
-    orders = query.all()
-    
     stats = {}
-    for o in orders:
-        if not o.date: continue
-        date_key = o.date.strftime(date_format)
-        if date_key not in stats:
-            stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
-        stats[date_key]["total_sales"] += (o.total or 0.0)
-        stats[date_key]["count"] += 1
 
-    # Query 2: Quantity (from Items) - Aggregated by Order Date
-    # We need to filter items but group by Order Date (Month)
-    # It's cleaner to fetch all relevant items with their order dates
-    
-    qty_query = db.query(models.Order.date, models.Item.quantity)\
-        .join(models.Order)\
-        .filter(models.Order.date.isnot(None))\
-        .filter(
-            ~models.Item.name.ilike("%wysyłka%"),
-            ~models.Item.name.ilike("%GLS%")
-        )
+    if product:
+        # Single query for specific product
+        query = db.query(models.Order.date, models.Item.quantity, models.Item.price)\
+                  .join(models.Order)\
+                  .filter(models.Order.date.isnot(None))
         
-    # Apply same filters to qty_query
-    if date_from:
-        try:
-            d_from = datetime.strptime(date_from, "%Y-%m-%d")
-            qty_query = qty_query.filter(models.Order.date >= d_from)
-        except: pass
-    if date_to:
-        try:
-            d_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            qty_query = qty_query.filter(models.Order.date <= d_to)
-        except: pass
-    if source:
-        qty_query = qty_query.filter(models.Order.source == source)
-    if client:
-        search_client = f"%{client}%"
-        qty_query = qty_query.filter(
-            (models.Order.client_name.like(search_client)) |
-            (models.Order.nip.like(search_client))
-        )
+        search_product = f"%{product}%"
+        query = query.filter((models.Item.name.ilike(search_product)) | (models.Item.sku.ilike(search_product)))
+        
+        if d_from_obj: query = query.filter(models.Order.date >= d_from_obj)
+        if d_to_obj: query = query.filter(models.Order.date <= d_to_obj)
+        if source: query = query.filter(models.Order.source == source)
+        if client:
+            search_client = f"%{client}%"
+            query = query.filter((models.Order.client_name.ilike(search_client)) | (models.Order.nip.ilike(search_client)))
 
-    # Execute Qty Query
-    # Note: Fetching raw tuples (date, quantity)
-    # This might be many rows (one per item). 
-    # For 30k orders with avg 3 items = 90k rows. 
-    # Ideally we group by Month in SQL but date manipulation in SQL is dialect specific (SQLite vs others).
-    # Since we use Python datetime in model, let's fetch and aggregate. RAM should be fine for <100k rows.
-    
-    qty_results = qty_query.all()
-    
-    for date_val, qty_val in qty_results:
-        if not date_val: continue
-        date_key = date_val.strftime(date_format)
-        if date_key not in stats:
-            stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
-        stats[date_key]["quantity"] += (qty_val or 0)
+        results = query.all()
+        for date_val, qty_val, price_val in results:
+            if not date_val: continue
+            date_key = date_val.strftime(date_format)
+            if date_key not in stats:
+                stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
+            stats[date_key]["total_sales"] += (qty_val or 0) * (price_val or 0.0)
+            stats[date_key]["quantity"] += (qty_val or 0)
+            stats[date_key]["count"] += 1
+    else:
+        # Two queries for overall stats
+        query = db.query(models.Order.date, models.Order.total).filter(models.Order.date.isnot(None))
+        if d_from_obj: query = query.filter(models.Order.date >= d_from_obj)
+        if d_to_obj: query = query.filter(models.Order.date <= d_to_obj)
+        if source: query = query.filter(models.Order.source == source)
+        if client:
+            search_client = f"%{client}%"
+            query = query.filter((models.Order.client_name.ilike(search_client)) | (models.Order.nip.ilike(search_client)))
+            
+        orders = query.all()
+        for o in orders:
+            if not o.date: continue
+            date_key = o.date.strftime(date_format)
+            if date_key not in stats:
+                stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
+            stats[date_key]["total_sales"] += (o.total or 0.0)
+            stats[date_key]["count"] += 1
 
-    # Convert to list and sort
+        qty_query = db.query(models.Order.date, models.Item.quantity)\
+            .join(models.Order)\
+            .filter(models.Order.date.isnot(None))\
+            .filter(~models.Item.name.ilike("%wysyłka%"), ~models.Item.name.ilike("%GLS%"))
+            
+        if d_from_obj: qty_query = qty_query.filter(models.Order.date >= d_from_obj)
+        if d_to_obj: qty_query = qty_query.filter(models.Order.date <= d_to_obj)
+        if source: qty_query = qty_query.filter(models.Order.source == source)
+        if client:
+            qty_query = qty_query.filter((models.Order.client_name.ilike(search_client)) | (models.Order.nip.ilike(search_client)))
+
+        qty_results = qty_query.all()
+        for date_val, qty_val in qty_results:
+            if not date_val: continue
+            date_key = date_val.strftime(date_format)
+            if date_key not in stats:
+                stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
+            stats[date_key]["quantity"] += (qty_val or 0)
+
     result = []
     for date_k in sorted(stats.keys()):
         result.append({
@@ -278,6 +265,7 @@ def get_top_products(
     date_to: Optional[str] = None,
     source: Optional[str] = None,
     client: Optional[str] = None,
+    product: Optional[str] = None,
     sort_by: str = "qty", # 'qty' or 'value'
     db: Session = Depends(get_db)
 ):
@@ -309,6 +297,13 @@ def get_top_products(
             (models.Order.nip.like(search_client))
         )
 
+    if product:
+        search_product = f"%{product}%"
+        query = query.filter(
+            (models.Item.name.ilike(search_product)) |
+            (models.Item.sku.ilike(search_product))
+        )
+
     # Exclude shipping from top products
     query = query.filter(
         ~models.Item.name.ilike("%wysyłka%"),
@@ -335,6 +330,7 @@ def get_stats_summary(
     date_to: Optional[str] = None,
     source: Optional[str] = None,
     client: Optional[str] = None,
+    product: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     # Base query for items
@@ -360,6 +356,13 @@ def get_stats_summary(
         query = query.filter(
             (models.Order.client_name.like(search_client)) |
             (models.Order.nip.like(search_client))
+        )
+
+    if product:
+        search_product = f"%{product}%"
+        query = query.filter(
+            (models.Item.name.ilike(search_product)) |
+            (models.Item.sku.ilike(search_product))
         )
 
     # Calculate totals

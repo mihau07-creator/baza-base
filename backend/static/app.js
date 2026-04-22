@@ -111,7 +111,8 @@ function FilterBar({ onFilterChange, sources, defaultRange = 'allTime' }) {
             dateFrom: range ? range.from : '',
             dateTo: range ? range.to : '',
             source: '',
-            client: ''
+            client: '',
+            product: ''
         };
     });
 
@@ -203,6 +204,17 @@ function FilterBar({ onFilterChange, sources, defaultRange = 'allTime' }) {
             </div>
 
             <div className="flex items-center gap-2">
+                <span className="text-gray-400 text-sm">Produkt:</span>
+                <input
+                    type="text"
+                    placeholder="SKU/Nazwa..."
+                    className="bg-gray-800 border border-gray-600 text-white rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none w-32 md:w-40"
+                    value={filters.product || ''}
+                    onChange={e => handleChange('product', e.target.value)}
+                />
+            </div>
+
+            <div className="flex items-center gap-2">
                 <span className="text-gray-400 text-sm">Źródło:</span>
                 <select
                     className="bg-gray-800 border border-gray-600 text-white rounded px-2 py-1 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
@@ -219,6 +231,7 @@ function FilterBar({ onFilterChange, sources, defaultRange = 'allTime' }) {
                     handleRangeChange({ target: { value: 'last30' } }); // Reset to default
                     handleChange('client', '');
                     handleChange('source', '');
+                    handleChange('product', '');
                 }}
                 className="text-xs text-red-400 hover:text-red-300 ml-auto px-2"
             >
@@ -643,7 +656,8 @@ function StatsView({ sources }) {
             date_from: filters.dateFrom,
             date_to: filters.dateTo,
             source: filters.source,
-            client: filters.client
+            client: filters.client,
+            product: filters.product || ''
         });
         for (const [key, value] of params.entries()) if (!value) params.delete(key);
 
