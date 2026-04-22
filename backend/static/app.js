@@ -30,7 +30,7 @@ const IconList = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height
 
 // --- Components ---
 
-function FilterBar({ onFilterChange, sources, defaultRange = 'last30' }) {
+function FilterBar({ onFilterChange, sources, defaultRange = 'allTime' }) {
     // Helper to get formatted date string YYYY-MM-DD
     const formatDate = (date) => date.toISOString().split('T')[0];
 
