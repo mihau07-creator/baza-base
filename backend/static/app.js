@@ -1,5 +1,17 @@
 const { useState, useEffect, useMemo } = React;
 
+// Globalny interceptor Fetch (automatycznie dokleja hasło do zapytań)
+const originalFetch = window.fetch;
+window.fetch = function() {
+    let [resource, config] = arguments;
+    if (typeof resource === 'string' && resource.startsWith('/api/') && !resource.includes('token=')) {
+        config = config || {};
+        config.headers = config.headers || {};
+        config.headers['Authorization'] = 'Bearer ' + localStorage.getItem('app_password');
+    }
+    return originalFetch.apply(this, [resource, config]);
+};
+
 // Safe access to Recharts to prevent app crash if CDN fails
 const RechartsObj = window.Recharts || null;
 const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, ResponsiveContainer, Cell } = RechartsObj || {};
@@ -219,7 +231,8 @@ function FilterBar({ onFilterChange, sources, defaultRange = 'last30' }) {
 function FileBadge({ type, orderId, exists, number }) {
     if (!exists) return <span className="text-gray-600 text-xs px-2 py-1 flex items-center gap-1 opacity-50 cursor-not-allowed"><span className="w-2 h-2 rounded-full bg-gray-600"></span>Brak</span>;
 
-    const url = `/api/files/${orderId}/${type}`;
+    const token = localStorage.getItem('app_password');
+    const url = `/api/files/${orderId}/${type}?token=${token}`;
     const color = type === 'invoice' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30 hover:bg-blue-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30';
     const Icon = type === 'invoice' ? IconFileText : IconReceipt;
     const label = type === 'invoice' ? 'FV' : 'PAR';
@@ -273,13 +286,13 @@ function OrderRow({ order }) {
                 </td>
                 <td className="p-3">
                     <div className="flex flex-col gap-1.5 items-start">
-                        {order.invoice_path ?
+                        {order.invoice_number ?
                             <FileBadge type="invoice" orderId={order.id} exists={true} number={order.invoice_number} /> :
-                            (order.invoice_number ? <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded">FV (Brak)</span> : null)
+                            <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded">FV (Brak)</span>
                         }
-                        {order.receipt_path ?
+                        {order.receipt_number ?
                             <FileBadge type="receipt" orderId={order.id} exists={true} number={order.receipt_number} /> :
-                            (order.receipt_number ? <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded">PAR (Brak)</span> : null)
+                            <span className="text-[10px] text-gray-500 border border-gray-700 px-1.5 py-0.5 rounded">PAR (Brak)</span>
                         }
                     </div>
                 </td>
@@ -401,7 +414,7 @@ function OrderDetails({ orderId }) {
 }
 
 
-function Dashboard() {
+function Dashboard({ onLogout }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [orders, setOrders] = useState([]);
     const [total, setTotal] = useState(0);
@@ -493,6 +506,10 @@ function Dashboard() {
                         <IconBarChart /> Statystyki
                     </button>
                 </div>
+                
+                <button onClick={onLogout} className="ml-4 text-xs text-red-400 hover:text-red-300 px-3 py-1.5 border border-red-900/30 rounded-lg hover:bg-red-900/20 transition-colors">
+                    Wyloguj
+                </button>
             </header>
 
             {tab === 'list' && (
@@ -759,5 +776,61 @@ function StatsView({ sources }) {
     );
 }
 
+function App() {
+    const [loggedIn, setLoggedIn] = useState(false);
+    const [token, setToken] = useState(localStorage.getItem('app_password') || '');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (token) {
+            fetch('/api/sources')
+                .then(res => {
+                    if (res.ok) setLoggedIn(true);
+                    else {
+                        setLoggedIn(false);
+                        localStorage.removeItem('app_password');
+                    }
+                    setLoading(false);
+                }).catch(() => setLoading(false));
+        } else {
+            setLoading(false);
+        }
+    }, [token]);
+
+    const handleLogin = (e) => {
+        e.preventDefault();
+        const pwd = e.target.password.value;
+        localStorage.setItem('app_password', pwd);
+        setToken(pwd);
+        setLoading(true); // Trigger effect to verify
+    };
+
+    if (loading) return <div className="h-screen w-screen flex items-center justify-center bg-gray-900"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>;
+
+    if (!loggedIn) {
+        return (
+            <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-900 px-4">
+                <form onSubmit={handleLogin} className="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 w-full max-w-sm flex flex-col items-center">
+                    <img src="/logo.png" alt="Logo" className="h-16 mb-6" style={{ filter: 'invert(1)', mixBlendMode: 'screen' }} />
+                    <h2 className="text-xl text-white font-bold mb-6">Logowanie do Archiwum</h2>
+                    <input 
+                        type="password" 
+                        name="password" 
+                        placeholder="Hasło dostępowe" 
+                        className="w-full bg-gray-900 border border-gray-700 text-white px-4 py-2.5 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                        required 
+                    />
+                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg transition-colors">Uzyskaj Dostęp</button>
+                </form>
+                <div className="mt-8 text-xs text-gray-600 text-center">
+                    Archiwum Sprzedaży jest chronione hasłem.<br/>System weryfikuje logowanie za pomocą kryptograficznego tokenu HTTPBearer.
+                </div>
+            </div>
+        );
+    }
+
+    return <Dashboard onLogout={() => { setLoggedIn(false); setToken(''); localStorage.removeItem('app_password'); }} />;
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<Dashboard />);
+root.render(<App />);

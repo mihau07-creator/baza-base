@@ -28,15 +28,31 @@ Działa to bardzo podobnie i też jest darmowe.
 Masz teraz puste "Space". Musimy tam wgrać Twój kod.
 Dla początkujących najłatwiej jest **zrobić to ręcznie** (upload) lub **połączyć z GitHubem**.
 
-### Opcja A: Połączenie z GitHub (Zalecane)
-1. W ustawieniach Space (zakładka **Settings** na górze strony space'a).
-2. Znajdź sekcję **"Git Repository"** lub **"Sync with GitHub"**.
-3. Połącz ze swoim repozytorium: `michallytka/baza-base`.
+### Opcja A: Połączenie z GitHub (Ukryte w Settings)
+1. Wejdź w zakładkę **Settings** (na górze, obok nazwy Space'a, obok Files/App).
+2. Przewiń w dół do sekcji **"Git Repository"**.
+3. Wpisz tam adres swojego repozytorium: `https://github.com/michallytka/baza-base`.
+4. Kliknij Connect.
 
-### Opcja B: Szybki start (gdyby opcja A była trudna)
-1. Na stronie Space wejdź w zakładkę **Files**.
-2. Kliknij **"Add file"** -> **"Upload files"**.
-3. Przeciągnij tam pliki: `app.py`, `sales.db`, `requirements.txt` oraz folder `backend` (jeśli się da, lub stwórz go i wgraj `models.py`).
+### Opcja B: Ręczne wgranie plików (PROSTSZE)
+Jeśli nie widzisz opcji A, zrób to ręcznie:
+1. Wejdź w zakładkę **Files and versions** (na górze strony Space'a).
+2. Kliknij **Add file** -> **Upload files**.
+3. Przeciągnij z folderu na komputerze te pliki:
+   - `Dockerfile`
+   - `app.py`
+   - `requirements.txt`
+   - `sales.db`
+   - `sales.db`
+
 4. Kliknij **Commit changes**.
+
+**Co zrobić z folderem `backend`?**
+Hugging Face nie pozwala przeciągnąć całego folderu. Musisz stworzyć pliki ręcznie w środku folderu:
+1. Kliknij **Add file** -> **Create new file**.
+2. W nazwie pliku wpisz: `backend/models.py` (tak, z ukośnikiem!).
+3. Wklej zawartość pliku `backend/models.py` z Twojego komputera.
+4. Kliknij **Commit**.
+5. Powtórz to dla `backend/database.py` i `backend/__init__.py`.
 
 Aplikacja powinna się zbudować i uruchomić w ciągu kilku minut.

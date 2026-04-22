@@ -1,17 +1,51 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
 from typing import List, Optional
 from datetime import datetime
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 import os
+import io
+import json
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
 
 from .database import get_db
 from . import models
 
+# Inicjalizacja Google Drive API
+SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), 'google_credentials.json')
+
+drive_service = None
+google_creds_env = os.getenv("GOOGLE_CREDENTIALS_JSON")
+
+try:
+    if google_creds_env:
+        creds_info = json.loads(google_creds_env)
+        creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+        drive_service = build('drive', 'v3', credentials=creds)
+        print("Udało się podłączyć do Google Drive API (przez Cloud ENV)!")
+    elif os.path.exists(SERVICE_ACCOUNT_FILE):
+        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        drive_service = build('drive', 'v3', credentials=creds)
+        print("Udało się podłączyć do Google Drive API (przez lokalny plik)!")
+except Exception as e:
+    print(f"Błąd inicjalizacji Google Drive API: {e}")
+
 router = APIRouter(prefix="/api")
 
-@router.get("/search")
+security = HTTPBearer()
+PASSWORD = os.getenv("APP_PASSWORD", "archiwum2025")
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials != PASSWORD:
+        raise HTTPException(status_code=401, detail="Nieprawidlowe haslo")
+    return credentials.credentials
+
+@router.get("/search", dependencies=[Depends(verify_token)])
 def search_orders(
     q: Optional[str] = None,
     nip: Optional[str] = None,
@@ -82,7 +116,7 @@ def search_orders(
         "data": orders
     }
 
-@router.get("/order/{order_id}")
+@router.get("/order/{order_id}", dependencies=[Depends(verify_token)])
 def get_order_details(order_id: str, db: Session = Depends(get_db)):
     order = db.query(models.Order).options(joinedload(models.Order.items)).filter(models.Order.id == order_id).first()
     if not order:
@@ -120,7 +154,7 @@ def get_order_details(order_id: str, db: Session = Depends(get_db)):
         ]
     }
 
-@router.get("/stats/sales")
+@router.get("/stats/sales", dependencies=[Depends(verify_token)])
 def get_sales_stats(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
@@ -225,7 +259,7 @@ def get_sales_stats(
 
     return result
 
-@router.get("/stats/products")
+@router.get("/stats/products", dependencies=[Depends(verify_token)])
 def get_top_products(
     limit: int = 10, 
     date_from: Optional[str] = None,
@@ -283,7 +317,7 @@ def get_top_products(
         for row in top_products
     ]
 
-@router.get("/stats/summary")
+@router.get("/stats/summary", dependencies=[Depends(verify_token)])
 def get_stats_summary(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
@@ -354,7 +388,7 @@ def get_stats_summary(
         "shipping_cost": shipping_revenue
     }
 
-@router.get("/sources")
+@router.get("/sources", dependencies=[Depends(verify_token)])
 def get_sources(db: Session = Depends(get_db)):
     # Get distinct sources
     sources = db.query(models.Order.source).distinct().filter(models.Order.source != "").all()
@@ -362,20 +396,48 @@ def get_sources(db: Session = Depends(get_db)):
     return [s[0] for s in sources if s[0]]
 
 @router.get("/files/{order_id}/{file_type}")
-def get_file(order_id: str, file_type: str, db: Session = Depends(get_db)):
+def get_file(order_id: str, file_type: str, token: str = Query(...), db: Session = Depends(get_db)):
+    if token != PASSWORD:
+        raise HTTPException(status_code=401, detail="Nieprawidlowe haslo")
+    
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(status_code=404, detail="Zamowienie nie znalezione")
     
-    file_path = None
-    if file_type == "invoice":
-        file_path = order.invoice_path
-    elif file_type == "receipt":
-        file_path = order.receipt_path
-    else:
-        raise HTTPException(status_code=400, detail="Invalid file type")
+    doc_num = order.invoice_number if file_type == "invoice" else order.receipt_number
+    if not doc_num:
+        raise HTTPException(status_code=404, detail="Brak numeru dokumentu w bazie")
+
+    if not drive_service:
+        raise HTTPException(status_code=500, detail="Brak polaczenia z Dyskiem Google")
+
+    # Wyszukiwanie pliku na Dysku
+    clean_num_1 = doc_num.replace('/', '_').replace('\\', '_')
+    clean_num_2 = doc_num.replace('/', '-')
+    
+    query = f"mimeType='application/pdf' and (name contains '{doc_num}' or name contains '{clean_num_1}' or name contains '{clean_num_2}')"
+    results = drive_service.files().list(q=query, pageSize=1, fields="files(id, name)").execute()
+    items = results.get('files', [])
+    
+    # Próba awaryjna po numerze zamówienia
+    if not items:
+        query_fallback = f"mimeType='application/pdf' and name contains '{order_id}'"
+        results = drive_service.files().list(q=query_fallback, pageSize=1, fields="files(id, name)").execute()
+        items = results.get('files', [])
         
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found on server")
-        
-    return FileResponse(file_path)
+    if not items:
+        raise HTTPException(status_code=404, detail="Plik nie zostal odnaleziony na Dysku Google")
+
+    file_id = items[0]['id']
+    file_name = items[0]['name']
+
+    # Strumieniowanie z Google do Przeglądarki Użytkownika
+    request = drive_service.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+    
+    fh.seek(0)
+    return StreamingResponse(fh, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename={file_name}"})
