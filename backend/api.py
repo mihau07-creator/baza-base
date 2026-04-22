@@ -164,16 +164,18 @@ def get_sales_stats(
 ):
     query = db.query(models.Order.date, models.Order.total).filter(models.Order.date.isnot(None))
     
+    d_from_obj = None
+    d_to_obj = None
     if date_from:
         try:
-            d_from = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(models.Order.date >= d_from)
+            d_from_obj = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(models.Order.date >= d_from_obj)
         except: pass
         
     if date_to:
         try:
-            d_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            query = query.filter(models.Order.date <= d_to)
+            d_to_obj = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            query = query.filter(models.Order.date <= d_to_obj)
         except: pass
 
     if source:
@@ -186,17 +188,28 @@ def get_sales_stats(
             (models.Order.nip.like(search_client))
         )
 
+    # Determine grouping: Day vs Month
+    group_by_day = False
+    if d_from_obj and d_to_obj:
+        if (d_to_obj - d_from_obj).days <= 90:
+            group_by_day = True
+    elif d_from_obj and not d_to_obj:
+        if (datetime.now() - d_from_obj).days <= 90:
+            group_by_day = True
+            
+    date_format = "%Y-%m-%d" if group_by_day else "%Y-%m"
+
     # Query 1: Sales (from Orders)
     orders = query.all()
     
     stats = {}
     for o in orders:
         if not o.date: continue
-        month_key = o.date.strftime("%Y-%m")
-        if month_key not in stats:
-            stats[month_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
-        stats[month_key]["total_sales"] += (o.total or 0.0)
-        stats[month_key]["count"] += 1
+        date_key = o.date.strftime(date_format)
+        if date_key not in stats:
+            stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
+        stats[date_key]["total_sales"] += (o.total or 0.0)
+        stats[date_key]["count"] += 1
 
     # Query 2: Quantity (from Items) - Aggregated by Order Date
     # We need to filter items but group by Order Date (Month)
@@ -241,20 +254,19 @@ def get_sales_stats(
     
     for date_val, qty_val in qty_results:
         if not date_val: continue
-        month_key = date_val.strftime("%Y-%m")
-         # Ensure key exists (in case order has items but 0 total or somehow missed in first query - though unlikely if joins match)
-        if month_key not in stats:
-            stats[month_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
-        stats[month_key]["quantity"] += (qty_val or 0)
+        date_key = date_val.strftime(date_format)
+        if date_key not in stats:
+            stats[date_key] = {"total_sales": 0.0, "quantity": 0, "count": 0}
+        stats[date_key]["quantity"] += (qty_val or 0)
 
     # Convert to list and sort
     result = []
-    for month in sorted(stats.keys()):
+    for date_k in sorted(stats.keys()):
         result.append({
-            "month": month,
-            "total_sales": stats[month]["total_sales"],
-            "quantity": stats[month]["quantity"],
-            "count": stats[month]["count"]
+            "month": date_k,
+            "total_sales": stats[date_k]["total_sales"],
+            "quantity": stats[date_k]["quantity"],
+            "count": stats[date_k]["count"]
         })
 
     return result
