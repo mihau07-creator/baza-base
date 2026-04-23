@@ -293,8 +293,8 @@ def get_top_products(
     if client:
         search_client = f"%{client}%"
         query = query.filter(
-            (models.Order.client_name.like(search_client)) |
-            (models.Order.nip.like(search_client))
+            (models.Order.client_name.ilike(search_client)) |
+            (models.Order.nip.ilike(search_client))
         )
 
     if product:
@@ -354,8 +354,8 @@ def get_stats_summary(
     if client:
         search_client = f"%{client}%"
         query = query.filter(
-            (models.Order.client_name.like(search_client)) |
-            (models.Order.nip.like(search_client))
+            (models.Order.client_name.ilike(search_client)) |
+            (models.Order.nip.ilike(search_client))
         )
 
     if product:
