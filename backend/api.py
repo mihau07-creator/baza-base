@@ -79,8 +79,8 @@ def search_orders(
     if client:
         search_client = f"%{client}%"
         query = query.filter(
-            (models.Order.client_name.like(search_client)) |
-            (models.Order.nip.like(search_client))
+            (models.Order.client_name.ilike(search_client)) |
+            (models.Order.nip.ilike(search_client))
         )
 
     if q:
@@ -88,20 +88,20 @@ def search_orders(
         for term in search_terms:
             t_search = f"%{term}%"
             query = query.filter(
-                (models.Order.id.like(t_search)) |
-                (models.Order.client_name.like(t_search)) |
-                (models.Order.email.like(t_search)) |
-                (models.Order.phone.like(t_search)) |
-                (models.Order.nip.like(t_search)) |
-                (models.Order.address.like(t_search))
+                (models.Order.id.ilike(t_search)) |
+                (models.Order.client_name.ilike(t_search)) |
+                (models.Order.email.ilike(t_search)) |
+                (models.Order.phone.ilike(t_search)) |
+                (models.Order.nip.ilike(t_search)) |
+                (models.Order.address.ilike(t_search))
             )
     
     if nip:
-        query = query.filter(models.Order.nip.like(f"%{nip}%"))
+        query = query.filter(models.Order.nip.ilike(f"%{nip}%"))
     if email:
-        query = query.filter(models.Order.email.like(f"%{email}%"))
+        query = query.filter(models.Order.email.ilike(f"%{email}%"))
     if phone:
-        query = query.filter(models.Order.phone.like(f"%{phone}%"))
+        query = query.filter(models.Order.phone.ilike(f"%{phone}%"))
 
     # Sorting by date desc
     query = query.order_by(models.Order.date.desc())
