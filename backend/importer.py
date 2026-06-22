@@ -131,8 +131,8 @@ def import_csv(csv_path, backup_dir=None):
             chunk_size = 900
             for i in range(0, len(ids_in_csv), chunk_size):
                 chunk = ids_in_csv[i:i+chunk_size]
-                session.query(models.Order).filter(models.Order.id.in_(chunk)).delete(synchronize_session=False)
                 session.query(models.Item).filter(models.Item.order_id.in_(chunk)).delete(synchronize_session=False)
+                session.query(models.Order).filter(models.Order.id.in_(chunk)).delete(synchronize_session=False)
             session.commit()
             
         print("Preparing objects for bulk insert...")
@@ -257,8 +257,8 @@ def find_latest_csvs(root_dir):
     # BaseLinker Backup/2025/2025_02/Zamówienia/*.csv
     
     for root, dirs, files in os.walk(root_dir):
-        # Filter for CSVs
-        csvs = [f for f in files if f.lower().endswith('.csv')]
+        # Filter for CSVs and ensure it's in a "Zamówienia" (or similar) directory to avoid inventory files
+        csvs = [f for f in files if f.lower().endswith('.csv') and 'produ' not in root.lower()]
         if not csvs:
             continue
             
