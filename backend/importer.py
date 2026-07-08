@@ -116,9 +116,18 @@ def import_csv(csv_path, backup_dir=None):
         # 2. Delete them from DB (to handle updates).
         # 3. Bulk insert new objects.
         
-        ids_in_csv = df['Numer'].astype(str).tolist()
-        # Filter out nans
-        ids_in_csv = [x for x in ids_in_csv if x and x != 'nan']
+        # Normalize IDs to clean integer strings (removing trailing .0 if loaded as float)
+        ids_in_csv = []
+        for val in df['Numer']:
+            if pd.isna(val):
+                continue
+            val_str = str(val).strip()
+            if val_str.endswith('.0'):
+                val_str = val_str[:-2]
+            if val_str and val_str != 'nan':
+                ids_in_csv.append(val_str)
+        # Deduplicate to avoid duplicate deletes across chunks
+        ids_in_csv = list(set(ids_in_csv))
         
         if ids_in_csv:
             print(f"Syncing {len(ids_in_csv)} records (Clearing old versions)...")
@@ -142,7 +151,12 @@ def import_csv(csv_path, backup_dir=None):
         
         for index, row in df.iterrows():
             try:
-                order_id = str(row.get('Numer', ''))
+                val = row.get('Numer', '')
+                if pd.isna(val):
+                    continue
+                order_id = str(val).strip()
+                if order_id.endswith('.0'):
+                    order_id = order_id[:-2]
                 if not order_id or order_id == 'nan':
                     continue
                 
