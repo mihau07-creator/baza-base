@@ -21,6 +21,12 @@ postgres_engine = create_engine(supabase_url)
 print("Tworzenie pustych, powiazanych tabel w chmurze (PostgreSQL)...")
 Base.metadata.create_all(bind=postgres_engine)
 
+print("Czyszczenie starej zawartosci w chmurze przed migracja...")
+with postgres_engine.connect() as conn:
+    conn.execute(text("DELETE FROM items;"))
+    conn.execute(text("DELETE FROM orders;"))
+    conn.commit()
+
 print("Pobieranie i kopiowanie zamowien (Orders)...")
 orders_df = pd.read_sql_table("orders", sqlite_engine)
 orders_df.to_sql("orders", postgres_engine, if_exists="append", index=False, chunksize=1000)
