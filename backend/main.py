@@ -1,16 +1,19 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from . import models, api
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+# Safe database tables initialization
+try:
+    models.Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"[MAIN WARNING] Blad podczas Base.metadata.create_all: {e}")
 
 app = FastAPI(title="Sales Archive")
 
 app.include_router(api.router)
-
 
 # Enable CORS for development
 app.add_middleware(
@@ -25,5 +28,6 @@ app.add_middleware(
 def health_check():
     return {"status": "ok"}
 
-# Placeholder for static files (Frontend will be built here later)
-app.mount("/", StaticFiles(directory="backend/static", html=True), name="static")
+# Absolute path for static files (Frontend)
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
