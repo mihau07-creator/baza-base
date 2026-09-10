@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .env
 backend/google_credentials.json
+desktop.ini
+*.bak
